@@ -13,8 +13,8 @@ import { Deck } from './cards/entities/deck.entity';
     // definitely use ENV config for real app
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'postgres',
-      port: 5432,
+      host: process.env.POSTGRES_HOST,
+      port: Number(process.env.POSTGRES_PORT),
       username: 'postgres',
       password: 'root',
       database: 'cards',

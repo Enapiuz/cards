@@ -1,30 +1,37 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode } from '@nestjs/common';
 import { CardsService } from './cards.service';
-import { CreateDeckDto, CreateDeckResponseDto } from './dto/create-deck.dto';
-import { OpenDeckDto, OpenDeckResponseDto } from './dto/open-deck.dto';
+import {
+  CreateDeckRequestDto,
+  CreateDeckResponseDto,
+} from './dto/create-deck.dto';
+import { OpenDeckRequestDto, OpenDeckResponseDto } from './dto/open-deck.dto';
+import { DrawCardRequestDto, DrawCardResponseDto } from './dto/draw-card.dto';
 
-@Controller('cards')
+@Controller()
 export class CardsController {
   constructor(private readonly cardsService: CardsService) {}
 
-  @Post('createDeck')
-  async createDeck(
-    @Body() createDeckDto: CreateDeckDto,
+  @Post('/deck/create')
+  @HttpCode(201)
+  public async createDeck(
+    @Body() request: CreateDeckRequestDto,
   ): Promise<CreateDeckResponseDto> {
-    console.log(createDeckDto);
-    return this.cardsService.createDeck(createDeckDto);
+    return this.cardsService.createDeck(request);
   }
 
-  @Post('openDeck')
-  async openDeck(
-    @Body() openDeckDto: OpenDeckDto,
+  @Post('/deck/open')
+  @HttpCode(200)
+  public async openDeck(
+    @Body() request: OpenDeckRequestDto,
   ): Promise<OpenDeckResponseDto> {
-    return this.cardsService.openDeck(openDeckDto);
+    return this.cardsService.openDeck(request);
   }
 
-  @Post('drawCard')
-  drawCard(): string {
-    this.cardsService.drawCard();
-    return 'draw';
+  @Post('/card/draw')
+  @HttpCode(200)
+  public async drawCard(
+    @Body() request: DrawCardRequestDto,
+  ): Promise<DrawCardResponseDto> {
+    return this.cardsService.drawCard(request);
   }
 }

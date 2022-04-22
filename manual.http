@@ -1,0 +1,36 @@
+# HTTP requests collection for manual tests
+
+# Create
+POST http://localhost:3000/deck/create
+Content-Type: application/json
+
+{
+  "type": "FULL",
+  "shuffled": false
+}
+
+###
+
+# Open
+POST http://localhost:3000/deck/open
+Content-Type: application/json
+
+{
+  "deckId": "eb72aa15-d5e0-459d-895a-524f9b94b310"
+}
+
+###
+
+# Draw
+POST http://localhost:3000/card/draw
+Content-Type: application/json
+
+{
+  "deckId": "eb72aa15-d5e0-459d-895a-524f9b94b310",
+  "count": 2
+}
+
+###
+
+GET http://localhost:3000/
+Content-Type: application/json

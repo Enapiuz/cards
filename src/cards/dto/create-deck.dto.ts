@@ -5,7 +5,7 @@ import { DeckType } from '../entities/deck.entity';
 @JoiSchemaOptions({
   allowUnknown: false,
 })
-export class CreateDeckDto {
+export class CreateDeckRequestDto {
   @JoiSchema(
     Joi.string()
       .allow(DeckType[DeckType.FULL], DeckType[DeckType.SHORT])

@@ -20,12 +20,47 @@ services:
       - postgres
     environment:
       POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: 5432
+
   postgres:
+    container_name: postgres_dev
     image: postgres:latest
     restart: always
     command: ["postgres", "-c", "log_statement=all"]
     ports:
       - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: cards
+
+  test:
+    container_name: nestjs_api_test
+    image: nestjs-api-dev:1.0.0
+    build:
+      context: .
+      target: development
+      dockerfile: ./Dockerfile
+    command: bash -c "npm run test && npm run test:e2e"
+    ports:
+      - "3001:3000"
+      - "9228:9229"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    restart: unless-stopped
+    depends_on:
+      - postgres_test
+    environment:
+      POSTGRES_HOST: "postgres_test"
+      POSTGRES_PORT: 5432
+
+  postgres_test:
+    container_name: postgres_test
+    image: postgres:latest
+    restart: always
+    command: ["postgres", "-c", "log_statement=all"]
+    ports:
+      - "127.0.0.1:5434:5432"
     environment:
       POSTGRES_PASSWORD: root
       POSTGRES_DB: cards

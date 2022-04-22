@@ -1,60 +1,56 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { CreateDeckDto, CreateDeckResponseDto } from './dto/create-deck.dto';
-import { Deck, DeckType } from './entities/deck.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  CreateDeckRequestDto,
+  CreateDeckResponseDto,
+} from './dto/create-deck.dto';
+import { DeckType } from './entities/deck.entity';
 import { Card } from './entities/card.entity';
 import { FullValues, ShortValues, SuitEnum } from './constants/cards';
-import {
-  OpenDeckCard,
-  OpenDeckDto,
-  OpenDeckResponseDto,
-} from './dto/open-deck.dto';
+import { OpenDeckRequestDto, OpenDeckResponseDto } from './dto/open-deck.dto';
+import { DrawCardRequestDto, DrawCardResponseDto } from './dto/draw-card.dto';
+import { CardData } from './dto/card';
+import { CardsData } from './cards.data';
 
 @Injectable()
 export class CardsService {
-  public constructor(
-    @InjectRepository(Deck)
-    private readonly decksRepository: Repository<Deck>,
-    @InjectRepository(Card)
-    private readonly cardsRepository: Repository<Card>,
-  ) {}
+  public constructor(private readonly cardsData: CardsData) {}
 
   public async createDeck(
-    createDeckDto: CreateDeckDto,
+    createDeckDto: CreateDeckRequestDto,
   ): Promise<CreateDeckResponseDto> {
     const deckType = this.convertTypeToEnum(createDeckDto.type);
-    const deck = this.decksRepository.create();
+    const deck = this.cardsData.makeDeck();
     deck.type = deckType;
     deck.shuffled = createDeckDto.shuffled;
-    await this.decksRepository.insert(deck);
-    const cards = this.generateCards(deck.type, deck.id);
-    await this.cardsRepository.insert(cards);
+    await this.cardsData.insertDeck(deck);
+    const cards = this.generateCards(deck.type, deck.id, deck.shuffled);
+    await this.cardsData.insertCard(cards);
     const result = new CreateDeckResponseDto();
     result.deckId = deck.id;
     result.type = this.convertEnumToType(deck.type);
     result.shuffled = deck.shuffled;
-    result.remaining = await this.cardsRepository.count({ deck: deck.id });
+    result.remaining = await this.cardsData.countCardsInDeck(deck.id);
     return result;
   }
 
   public async openDeck(
-    openDeckDto: OpenDeckDto,
+    openDeckDto: OpenDeckRequestDto,
   ): Promise<OpenDeckResponseDto> {
-    const deck = await this.decksRepository
-      .createQueryBuilder('deck')
-      .leftJoinAndSelect('deck.cards', 'card')
-      .where('deck.id = :id', { id: openDeckDto.deckId })
-      .andWhere('card.drawn is false')
-      .orderBy('card.order', 'ASC')
-      .getOneOrFail();
+    const deck = await this.cardsData.loadDeck(openDeckDto.deckId);
+    if (!deck) {
+      throw new NotFoundException('Deck not found');
+    }
     const result = new OpenDeckResponseDto();
     result.deckId = deck.id;
     result.type = this.convertEnumToType(deck.type);
     result.shuffled = deck.shuffled;
     result.remaining = deck.cards.length;
     result.cards = deck.cards.map(
-      (card): OpenDeckCard => ({
+      (card): CardData => ({
         value: card.value,
         suit: card.suit,
         code: this.makeCardCode(card),
@@ -63,8 +59,22 @@ export class CardsService {
     return result;
   }
 
-  public drawCard() {
-    console.log('draw card');
+  public async drawCard(
+    drawCardDto: DrawCardRequestDto,
+  ): Promise<DrawCardResponseDto> {
+    const ids = await this.cardsData.drawCards(
+      drawCardDto.deckId,
+      drawCardDto.count,
+    );
+    // Don't like this.
+    const cards = await this.cardsData.getCardsByIds(ids);
+    const response = new DrawCardResponseDto();
+    response.cards = cards.map((card) => ({
+      value: card.value,
+      suit: card.suit,
+      code: this.makeCardCode(card),
+    }));
+    return response;
   }
 
   protected convertTypeToEnum(input: string): DeckType {
@@ -86,20 +96,38 @@ export class CardsService {
     return `${card.value[0]}${card.suit[0]}`;
   }
 
-  protected generateCards(mode: DeckType, deckId: string): Card[] {
+  protected generateCards(
+    mode: DeckType,
+    deckId: string,
+    shuffled: boolean,
+  ): Card[] {
     const values = mode === DeckType.FULL ? FullValues : ShortValues;
     const cards: Card[] = [];
-    let counter = 0;
+    const counter = this.makeCounter(
+      values.length * Object.keys(SuitEnum).length,
+      shuffled,
+    );
     for (const suit in SuitEnum) {
       for (const value of values) {
-        const card = this.cardsRepository.create();
+        const card = this.cardsData.makeCard();
         card.suit = suit as SuitEnum;
         card.value = value;
         card.deck = deckId;
-        card.order = counter++;
+        card.order = counter.next().value;
         cards.push(card);
       }
     }
     return cards;
+  }
+
+  protected *makeCounter(size: number, shuffle: boolean): Generator<number> {
+    const arr = [...Array(size).keys()];
+    if (shuffle) {
+      // Inefficient way to sort an array but enough for now
+      arr.sort(() => Math.random() - 0.5);
+    }
+    for (const num of arr) {
+      yield num;
+    }
   }
 }
